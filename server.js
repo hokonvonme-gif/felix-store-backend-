@@ -401,21 +401,6 @@ function createTransporter() {
   });
 }
 
-// Transporteur dédié à la newsletter, avec la même config SMTP explicite que le sketch
-// ESP32 (smtp.gmail.com:587 + STARTTLS) au lieu du raccourci "service: 'gmail'" ci-dessus,
-// qui pousse nodemailer à choisir le port 465 (TLS implicite) — souvent filtré ou plus
-// facilement flaggé par Gmail depuis une IP d'hébergeur comme celles de Render.
-function createBroadcastTransporter() {
-  if (!ENV.EMAIL_USER || !ENV.EMAIL_PASSWORD) return null;
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,      // false = STARTTLS sur le port 587 (pas de TLS implicite)
-    requireTLS: true,
-    auth: { user: ENV.EMAIL_USER, pass: ENV.EMAIL_PASSWORD }
-  });
-}
-
 // ==================== ROUTES PUBLIQUES ====================
 
 app.get('/', (req, res) => {
@@ -1077,14 +1062,12 @@ app.put('/api/orders/:id/status', checkAdmin, async (req, res) => {
 });
 
 // Envoi email groupé aux abonnés newsletter
-// Utilise createBroadcastTransporter() (SMTP explicite host/port/STARTTLS, comme l'ESP32)
-// au lieu du transporteur "service: 'gmail'" générique.
 app.post('/api/subscribers/broadcast', checkAdmin, async (req, res) => {
   const { subject, message } = req.body || {};
   if (!subject || !message) {
     return res.status(400).json({ success: false, message: 'Sujet et message obligatoires' });
   }
-  const transporter = createBroadcastTransporter();
+  const transporter = createTransporter();
   if (!transporter) {
     return res.status(503).json({ success: false, message: 'EMAIL_USER / EMAIL_PASSWORD non configurés sur Render' });
   }
