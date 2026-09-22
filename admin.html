@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Félix Store — Administration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f7f6f3;
+      --bg-elevated: #ffffff;
+      --bg-muted: #efeee9;
+      --text: #1a1a1a;
+      --text-secondary: #5c5c5c;
+      --text-muted: #8a8a8a;
+      --border: #e4e2dc;
+      --accent: #1f4e3d;
+      --accent-hover: #163d30;
+      --accent-soft: #e8f0ec;
+      --danger: #b33a3a;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.04);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --font-display: 'Instrument Serif', Georgia, serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font-family: inherit; }
+    button { cursor: pointer; border: none; background: none; }
+
+    /* Login */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow);
+    }
+    .login-card .logo {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      margin-bottom: 4px;
+    }
+    .login-card .logo span { color: var(--accent); }
+    .login-card .sub {
+      color: var(--text-muted);
+      font-size: .9rem;
+      margin-bottom: 24px;
+    }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .9rem;
+      background: var(--bg);
+      outline: none;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-size: .9rem;
+      font-weight: 600;
+      transition: background .15s, color .15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-outline {
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      background: var(--bg-elevated);
+    }
+    .btn-outline:hover { background: var(--bg-muted); }
+    .login-error {
+      color: var(--danger);
+      font-size: .85rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    /* Shell */
+    .shell { display: none; min-height: 100vh; }
+    .shell.visible { display: flex; flex-direction: column; }
+    .topbar {
+      height: 60px;
+      background: rgba(247,246,243,.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+    .topbar .logo {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+    }
+    .topbar .logo span { color: var(--accent); }
+    .topbar .spacer { flex: 1; }
+    .topbar .badge {
+      font-size: .75rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      gap: 24px;
+    }
+    .sidebar {
+      width: 200px;
+      flex-shrink: 0;
+    }
+    .nav-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: .9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .nav-item:hover { background: var(--bg-muted); color: var(--text); }
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .content { flex: 1; min-width: 0; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .panel-sub {
+      color: var(--text-muted);
+      font-size: .9rem;
+      margin-bottom: 20px;
+    }
+
+    /* KPI cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 14px;
+    }
+    .kpi .label {
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .kpi .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Tables */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+    }
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: var(--text-muted);
+      background: var(--bg-muted);
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafaf8; }
+    .num { font-variant-numeric: tabular-nums; text-align: right; }
+    th.num { text-align: right; }
+    .empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: .9rem;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .toolbar select, .toolbar input {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .85rem;
+      background: var(--bg-elevated);
+    }
+    .status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .status-paid, .status-delivered { background: var(--accent-soft); color: var(--accent); }
+    .status-pending, .status-pending_payment { background: #f5f0e6; color: #9a6b1f; }
+    .status-cancelled { background: #f8eaea; color: var(--danger); }
+    .muted { color: var(--text-muted); font-size: .85rem; }
+
+    @media (max-width: 900px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; display: flex; flex-wrap: wrap; gap: 4px; }
+      .nav-item { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div class="login-wrap" id="loginScreen">
+    <div class="login-card">
+      <div class="logo">Félix <span>Store</span></div>
+      <p class="sub">Espace administration</p>
+      <p class="login-error" id="loginError">Mot de passe incorrect</p>
+      <form id="loginForm">
+        <div class="field">
+          <label for="adminPassword">Mot de passe admin</label>
+          <input type="password" id="adminPassword" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary">Se connecter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="shell" id="shell">
+    <header class="topbar">
+      <div class="logo">Félix <span>Store</span></div>
+      <span class="badge">Admin</span>
+      <div class="spacer"></div>
+      <button type="button" class="btn btn-outline" id="logoutBtn" style="padding:8px 14px">Déconnexion</button>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <button type="button" class="nav-item active" data-tab="stats">Statistiques</button>
+        <button type="button" class="nav-item" data-tab="subscribers">Abonnés</button>
+        <button type="button" class="nav-item" data-tab="customers">Clients</button>
+        <button type="button" class="nav-item" data-tab="orders">Commandes</button>
+        <button type="button" class="nav-item" data-tab="products">Produits</button>
+      </aside>
+
+      <main class="content">
+        <!-- STATS -->
+        <section class="panel active" id="panel-stats">
+          <h1>Statistiques</h1>
+          <p class="panel-sub">Visites, pages vues, produits et paniers — données serveur</p>
+
+          <div class="toolbar">
+            <select id="statsSince">
+              <option value="">Tout le temps</option>
+              <option value="7">7 derniers jours</option>
+              <option value="30">30 derniers jours</option>
+              <option value="90">90 derniers jours</option>
+            </select>
+            <button type="button" class="btn btn-outline" id="refreshStats" style="padding:8px 14px">Actualiser</button>
+          </div>
+
+          <div class="kpi-grid" id="kpiGrid">
+            <div class="kpi"><div class="label">Visites</div><div class="value" id="kpiVisits">—</div></div>
+            <div class="kpi"><div class="label">Pages vues</div><div class="value" id="kpiPages">—</div></div>
+            <div class="kpi"><div class="label">Produits vus</div><div class="value" id="kpiProducts">—</div></div>
+            <div class="kpi"><div class="label">Actions panier</div><div class="value" id="kpiCart">—</div></div>
+            <div class="kpi"><div class="label">Sessions</div><div class="value" id="kpiSessions">—</div></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">Activité par jour</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th class="num">Visites</th>
+                    <th class="num">Pages vues</th>
+                    <th class="num">Produits</th>
+                    <th class="num">Paniers</th>
+                  </tr>
+                </thead>
+                <tbody id="byDayBody">
+                  <tr><td colspan="5" class="empty">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">Produits les plus consultés</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID produit</th>
+                    <th class="num">Vues</th>
+                  </tr>
+                </thead>
+                <tbody id="topProductsBody">
+                  <tr><td colspan="2" class="empty">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBSCRIBERS (newsletter — comme le backend d’origine) -->
+        <section class="panel" id="panel-subscribers">
+          <h1>Abonnés newsletter</h1>
+          <p class="panel-sub">Liste persistée : nom, prénom, email, date de naissance, lieu, profession, pays, ville</p>
+          <div class="card">
+            <div class="card-header">
+              <span id="subscribersCount">Inscrits</span>
+              <button type="button" class="btn btn-outline" id="refreshSubscribers" style="padding:6px 12px;font-size:.8rem">Actualiser</button>
+            </div>
+            <div style="padding:16px;border-bottom:1px solid var(--border)">
+              <h3 style="font-size:.95rem;margin-bottom:10px">Envoyer un email aux abonnés</h3>
+              <div class="field" style="margin-bottom:8px">
+                <label>Sujet</label>
+                <input type="text" id="broadcastSubject" placeholder="Sujet de l'email" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px" />
+              </div>
+              <div class="field" style="margin-bottom:8px">
+                <label>Message</label>
+                <textarea id="broadcastMessage" rows="4" placeholder="Votre message…" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit"></textarea>
+              </div>
+              <button type="button" class="btn btn-primary" id="broadcastBtn" style="padding:8px 16px">Envoyer à tous les abonnés</button>
+              <span class="muted" id="broadcastResult" style="margin-left:12px"></span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Prénom</th>
+                    <th>Email</th>
+                    <th>Date de naissance</th>
+                    <th>Lieu</th>
+                    <th>Profession</th>
+                    <th>Pays</th>
+                    <th>Ville</th>
+                    <th>Inscrit le</th>
+                    <th>Statut</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="subscribersBody">
+                  <tr><td colspan="12" class="empty">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CUSTOMERS (comptes créés depuis le frontend) -->
+        <section class="panel" id="panel-customers">
+          <h1>Clients (comptes)</h1>
+          <p class="panel-sub">Comptes créés via « Mon compte » sur le site — synchronisés avec le backend</p>
+          <div class="card">
+            <div class="card-header">
+              <span id="customersCount">Clients</span>
+              <button type="button" class="btn btn-outline" id="refreshCustomers" style="padding:6px 12px;font-size:.8rem">Actualiser</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Prénom</th>
+                    <th>Email</th>
+                    <th>Date de naissance</th>
+                    <th>Lieu</th>
+                    <th>Profession</th>
+                    <th>Pays</th>
+                    <th>Ville</th>
+                    <th>Créé le</th>
+                    <th>Dernière connexion</th>
+                  </tr>
+                </thead>
+                <tbody id="customersBody">
+                  <tr><td colspan="11" class="empty">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ORDERS -->
+        <section class="panel" id="panel-orders">
+          <h1>Commandes</h1>
+          <p class="panel-sub">Détail produits, quantités, catégorie — changez le statut (payé, expédié, livré, annulé)</p>
+          <div class="card">
+            <div class="card-header">
+              <span>Liste détaillée</span>
+              <button type="button" class="btn btn-outline" id="refreshOrders" style="padding:6px 12px;font-size:.8rem">Actualiser</button>
+            </div>
+            <div id="ordersBody" style="padding:12px">
+              <p class="empty">Chargement…</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRODUCTS -->
+        <section class="panel" id="panel-products">
+          <h1>Produits</h1>
+          <p class="panel-sub">Catalogue actuellement servi par l’API</p>
+          <div class="card">
+            <div class="card-header">
+              <span id="productsCount">Catalogue</span>
+              <button type="button" class="btn btn-outline" id="refreshProducts" style="padding:6px 12px;font-size:.8rem">Actualiser</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Catégorie</th>
+                    <th class="num">Prix</th>
+                    <th class="num">Stock</th>
+                  </tr>
+                </thead>
+                <tbody id="productsBody">
+                  <tr><td colspan="5" class="empty">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const API = ''; // même origine (backend)
+    let password = sessionStorage.getItem('fs-admin-pw') || '';
+
+    const loginScreen = document.getElementById('loginScreen');
+    const shell = document.getElementById('shell');
+
+    function showApp() {
+      loginScreen.style.display = 'none';
+      shell.classList.add('visible');
+      loadStats();
+    }
+
+    function showLogin() {
+      password = '';
+      sessionStorage.removeItem('fs-admin-pw');
+      shell.classList.remove('visible');
+      loginScreen.style.display = 'flex';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = document.getElementById('adminPassword').value;
+      const err = document.getElementById('loginError');
+      err.style.display = 'none';
+      try {
+        const res = await fetch(`${API}/api/analytics/stats?password=${encodeURIComponent(pw)}`);
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          err.style.display = 'block';
+          return;
+        }
+        password = pw;
+        sessionStorage.setItem('fs-admin-pw', pw);
+        showApp();
+        renderStats(data);
+      } catch {
+        err.textContent = 'Impossible de joindre le serveur';
+        err.style.display = 'block';
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', showLogin);
+
+    // Tabs
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('panel-' + tab).classList.add('active');
+        if (tab === 'stats') loadStats();
+        if (tab === 'subscribers') loadSubscribers();
+        if (tab === 'customers') loadCustomers();
+        if (tab === 'orders') loadOrders();
+        if (tab === 'products') loadProducts();
+      });
+    });
+
+    async function loadCustomers() {
+      try {
+        const res = await fetch(`${API}/api/customers?password=${encodeURIComponent(password)}`);
+        const data = await res.json();
+        if (!data.success) {
+          if (res.status === 401) return showLogin();
+          return;
+        }
+        const list = data.customers || [];
+        document.getElementById('customersCount').textContent = `Clients (${list.length})`;
+        const body = document.getElementById('customersBody');
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="11" class="empty">Aucun compte client</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(c => {
+          const created = (c.created_at || '').replace('T', ' ').slice(0, 16);
+          const last = (c.last_login || '').replace('T', ' ').slice(0, 16) || '—';
+          return `<tr>
+            <td>${c.id}</td>
+            <td>${escapeHtml(c.nom || '')}</td>
+            <td>${escapeHtml(c.prenom || '')}</td>
+            <td>${escapeHtml(c.email || '')}</td>
+            <td class="muted">${escapeHtml(c.date_naissance || '—')}</td>
+            <td class="muted">${escapeHtml(c.lieu || '—')}</td>
+            <td class="muted">${escapeHtml(c.profession || '—')}</td>
+            <td class="muted">${escapeHtml(c.pays || '—')}</td>
+            <td class="muted">${escapeHtml(c.ville || '—')}</td>
+            <td class="muted">${created}</td>
+            <td class="muted">${last}</td>
+          </tr>`;
+        }).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadSubscribers() {
+      try {
+        const res = await fetch(`${API}/api/subscribers?password=${encodeURIComponent(password)}`);
+        const data = await res.json();
+        if (!data.success) {
+          if (res.status === 401) return showLogin();
+          return;
+        }
+        const list = data.subscribers || [];
+        document.getElementById('subscribersCount').textContent = `Inscrits (${list.length})`;
+        const body = document.getElementById('subscribersBody');
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="12" class="empty">Aucun abonné pour le moment</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(s => {
+          const date = (s.date_inscription || '').replace('T', ' ').slice(0, 16);
+          return `<tr>
+            <td>${s.id}</td>
+            <td>${escapeHtml(s.nom || '')}</td>
+            <td>${escapeHtml(s.prenom || '')}</td>
+            <td>${escapeHtml(s.email || '')}</td>
+            <td class="muted">${escapeHtml(s.date_naissance || '—')}</td>
+            <td class="muted">${escapeHtml(s.lieu || '—')}</td>
+            <td class="muted">${escapeHtml(s.profession || '—')}</td>
+            <td class="muted">${escapeHtml(s.pays || '—')}</td>
+            <td class="muted">${escapeHtml(s.ville || '—')}</td>
+            <td class="muted">${date || '—'}</td>
+            <td><span class="status status-paid">${escapeHtml(s.statut || 'actif')}</span></td>
+            <td><button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:.75rem" data-del-sub="${s.id}">Suppr.</button></td>
+          </tr>`;
+        }).join('');
+        body.querySelectorAll('[data-del-sub]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Supprimer cet abonné ?')) return;
+            await fetch(`${API}/api/subscribers/${btn.dataset.delSub}?password=${encodeURIComponent(password)}`, { method: 'DELETE' });
+            loadSubscribers();
+          });
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function sinceISO() {
+      const v = document.getElementById('statsSince').value;
+      if (!v) return '';
+      const d = new Date();
+      d.setDate(d.getDate() - parseInt(v, 10));
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function loadStats() {
+      const since = sinceISO();
+      let url = `${API}/api/analytics/stats?password=${encodeURIComponent(password)}`;
+      if (since) url += `&since=${since}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.success) {
+          if (res.status === 401) return showLogin();
+          return;
+        }
+        renderStats(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderStats(data) {
+      document.getElementById('kpiVisits').textContent = data.totalVisits ?? 0;
+      document.getElementById('kpiPages').textContent = data.pageViews ?? 0;
+      document.getElementById('kpiProducts').textContent = data.productsViewed ?? 0;
+      document.getElementById('kpiCart').textContent = data.cartActions ?? 0;
+      document.getElementById('kpiSessions').textContent = data.sessions ?? 0;
+
+      // byDay → pivot
+      const map = {};
+      (data.byDay || []).forEach(row => {
+        if (!map[row.day]) map[row.day] = { visit: 0, page_view: 0, product_view: 0, cart_action: 0 };
+        map[row.day][row.event_type] = row.count;
+      });
+      const days = Object.keys(map).sort().reverse();
+      const tbody = document.getElementById('byDayBody');
+      if (!days.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">Aucune donnée pour cette période</td></tr>';
+      } else {
+        tbody.innerHTML = days.map(day => {
+          const r = map[day];
+          return `<tr>
+            <td>${day}</td>
+            <td class="num">${r.visit || 0}</td>
+            <td class="num">${r.page_view || 0}</td>
+            <td class="num">${r.product_view || 0}</td>
+            <td class="num">${r.cart_action || 0}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      const top = data.topProducts || [];
+      const topBody = document.getElementById('topProductsBody');
+      if (!top.length) {
+        topBody.innerHTML = '<tr><td colspan="2" class="empty">Aucun produit consulté</td></tr>';
+      } else {
+        topBody.innerHTML = top.map(p =>
+          `<tr><td>#${p.product_id}</td><td class="num">${p.views}</td></tr>`
+        ).join('');
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch(`${API}/api/orders?password=${encodeURIComponent(password)}`);
+        const data = await res.json();
+        if (!data.success) {
+          if (res.status === 401) return showLogin();
+          return;
+        }
+        const body = document.getElementById('ordersBody');
+        const orders = data.orders || [];
+        if (!orders.length) {
+          body.innerHTML = '<p class="empty">Aucune commande</p>';
+          return;
+        }
+        const statuses = ['pending_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
+        body.innerHTML = orders.map(o => {
+          const st = (o.status || '').replace(/\s/g, '_');
+          const date = (o.created_at || '').replace('T', ' ').slice(0, 16);
+          const items = o.items || [];
+          const itemsRows = items.length
+            ? items.map(it => `<tr>
+                <td>${escapeHtml(it.product_name || '—')}</td>
+                <td class="muted">${escapeHtml(it.product_category || '—')}</td>
+                <td class="num">${it.quantity}</td>
+                <td class="num">${Number(it.unit_price || 0).toFixed(2)} €</td>
+                <td class="num">${(Number(it.unit_price || 0) * Number(it.quantity || 0)).toFixed(2)} €</td>
+              </tr>`).join('')
+            : '<tr><td colspan="5" class="muted">Aucun détail produit (ancienne commande)</td></tr>';
+          const statusBtns = statuses.map(s =>
+            `<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:.72rem;margin:2px" data-order-status="${o.id}" data-status="${s}">${s}</button>`
+          ).join('');
+          return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden">
+            <div style="padding:12px 14px;background:var(--bg-muted);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+              <div>
+                <strong>${escapeHtml(o.order_number || '#' + o.id)}</strong>
+                <span class="status status-${st}" style="margin-left:8px">${escapeHtml(o.status || '—')}</span>
+                <div class="muted" style="margin-top:4px">${escapeHtml(o.customer_name || '')} · ${escapeHtml(o.customer_email || '')} · ${date}</div>
+              </div>
+              <div style="font-weight:700">${Number(o.total_amount || 0).toFixed(2)} €</div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produit</th>
+                    <th>Catégorie</th>
+                    <th class="num">Qté</th>
+                    <th class="num">Prix unit.</th>
+                    <th class="num">Sous-total</th>
+                  </tr>
+                </thead>
+                <tbody>${itemsRows}</tbody>
+              </table>
+            </div>
+            <div style="padding:10px 14px;border-top:1px solid var(--border)">
+              <div class="muted" style="font-size:.75rem;margin-bottom:6px">Changer le statut (après paiement / livraison) :</div>
+              ${statusBtns}
+              <button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:.72rem;margin:2px;color:var(--danger);border-color:#f0c0c0" data-order-del="${o.id}">Supprimer</button>
+            </div>
+          </div>`;
+        }).join('');
+
+        body.querySelectorAll('[data-order-status]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.orderStatus;
+            const status = btn.dataset.status;
+            if (!confirm(`Passer la commande #${id} en « ${status} » ?`)) return;
+            await fetch(`${API}/api/orders/${id}/status?password=${encodeURIComponent(password)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status, password })
+            });
+            loadOrders();
+          });
+        });
+        body.querySelectorAll('[data-order-del]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Supprimer définitivement cette commande ?')) return;
+            await fetch(`${API}/api/orders/${btn.dataset.orderDel}?password=${encodeURIComponent(password)}`, { method: 'DELETE' });
+            loadOrders();
+          });
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch(`${API}/api/products`);
+        const data = await res.json();
+        const list = data.products || data || [];
+        const arr = Array.isArray(list) ? list : [];
+        document.getElementById('productsCount').textContent = `Catalogue (${arr.length})`;
+        const body = document.getElementById('productsBody');
+        if (!arr.length) {
+          body.innerHTML = '<tr><td colspan="5" class="empty">Aucun produit</td></tr>';
+          return;
+        }
+        body.innerHTML = arr.map(p =>
+          `<tr>
+            <td>${p.id}</td>
+            <td>${escapeHtml(p.name)}</td>
+            <td class="muted">${escapeHtml(p.category || '')}</td>
+            <td class="num">${Number(p.price).toFixed(2)} €</td>
+            <td class="num">${p.stock ?? '—'}</td>
+          </tr>`
+        ).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('refreshStats').addEventListener('click', loadStats);
+    document.getElementById('statsSince').addEventListener('change', loadStats);
+    document.getElementById('refreshSubscribers').addEventListener('click', loadSubscribers);
+    document.getElementById('refreshCustomers').addEventListener('click', loadCustomers);
+    document.getElementById('refreshOrders').addEventListener('click', loadOrders);
+    document.getElementById('refreshProducts').addEventListener('click', loadProducts);
+
+    document.getElementById('broadcastBtn')?.addEventListener('click', async () => {
+      const subject = document.getElementById('broadcastSubject').value.trim();
+      const message = document.getElementById('broadcastMessage').value.trim();
+      const out = document.getElementById('broadcastResult');
+      if (!subject || !message) {
+        out.textContent = 'Sujet et message requis';
+        return;
+      }
+      out.textContent = 'Envoi…';
+      try {
+        const res = await fetch(`${API}/api/subscribers/broadcast?password=${encodeURIComponent(password)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, message, password })
+        });
+        const data = await res.json();
+        if (data.success) out.textContent = `Envoyé : ${data.sent}/${data.total}` + (data.failed ? ` (échecs: ${data.failed})` : '');
+        else out.textContent = data.message || 'Erreur';
+      } catch (e) {
+        out.textContent = 'Erreur réseau';
+      }
+    });
+
+    // Auto-login si session
+    if (password) {
+      fetch(`${API}/api/analytics/stats?password=${encodeURIComponent(password)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            showApp();
+            renderStats(data);
+          } else showLogin();
+        })
+        .catch(showLogin);
+    }
+  </script>
+</body>
+</html>
