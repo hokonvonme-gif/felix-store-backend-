@@ -407,7 +407,8 @@
               <button type="button" class="btn btn-outline" id="refreshSubscribers" style="padding:6px 12px;font-size:.8rem">Actualiser</button>
             </div>
             <div style="padding:16px;border-bottom:1px solid var(--border)">
-              <h3 style="font-size:.95rem;margin-bottom:10px">Envoyer un email aux abonnés</h3>
+              <h3 style="font-size:.95rem;margin-bottom:10px">Envoyer un email</h3>
+              <p class="muted" style="font-size:.85rem;margin-bottom:10px">Coche les abonnés dans le tableau (par ID), ou envoie à tout le monde.</p>
               <div class="field" style="margin-bottom:8px">
                 <label>Sujet</label>
                 <input type="text" id="broadcastSubject" placeholder="Sujet de l'email" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px" />
@@ -416,13 +417,20 @@
                 <label>Message</label>
                 <textarea id="broadcastMessage" rows="4" placeholder="Votre message…" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit"></textarea>
               </div>
-              <button type="button" class="btn btn-primary" id="broadcastBtn" style="padding:8px 16px">Envoyer à tous les abonnés</button>
-              <span class="muted" id="broadcastResult" style="margin-left:12px"></span>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                <button type="button" class="btn btn-primary" id="broadcastSelectedBtn" style="padding:8px 16px">Envoyer aux sélectionnés</button>
+                <button type="button" class="btn btn-outline" id="broadcastBtn" style="padding:8px 16px">Envoyer à tous</button>
+                <button type="button" class="btn btn-outline" id="selectAllSubsBtn" style="padding:8px 12px;font-size:.8rem">Tout cocher</button>
+                <button type="button" class="btn btn-outline" id="clearSubsBtn" style="padding:8px 12px;font-size:.8rem">Tout décocher</button>
+                <span class="muted" id="broadcastResult" style="margin-left:4px"></span>
+              </div>
+              <p class="muted" style="font-size:.8rem;margin-top:8px">Sélectionnés : <strong id="selectedCount">0</strong></p>
             </div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
+                    <th style="width:40px"><input type="checkbox" id="checkAllSubs" title="Tout sélectionner" /></th>
                     <th>ID</th>
                     <th>Nom</th>
                     <th>Prénom</th>
@@ -438,7 +446,7 @@
                   </tr>
                 </thead>
                 <tbody id="subscribersBody">
-                  <tr><td colspan="12" class="empty">Chargement…</td></tr>
+                  <tr><td colspan="13" class="empty">Chargement…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -622,6 +630,16 @@
       }
     }
 
+    function updateSelectedCount() {
+      const n = document.querySelectorAll('.sub-check:checked').length;
+      const el = document.getElementById('selectedCount');
+      if (el) el.textContent = String(n);
+    }
+
+    function getSelectedSubscriberIds() {
+      return Array.from(document.querySelectorAll('.sub-check:checked')).map(cb => parseInt(cb.value, 10)).filter(n => !isNaN(n));
+    }
+
     async function loadSubscribers() {
       try {
         const res = await fetch(`${API}/api/subscribers?password=${encodeURIComponent(password)}`);
@@ -634,13 +652,15 @@
         document.getElementById('subscribersCount').textContent = `Inscrits (${list.length})`;
         const body = document.getElementById('subscribersBody');
         if (!list.length) {
-          body.innerHTML = '<tr><td colspan="12" class="empty">Aucun abonné pour le moment</td></tr>';
+          body.innerHTML = '<tr><td colspan="13" class="empty">Aucun abonné pour le moment</td></tr>';
+          updateSelectedCount();
           return;
         }
         body.innerHTML = list.map(s => {
           const date = (s.date_inscription || '').replace('T', ' ').slice(0, 16);
           return `<tr>
-            <td>${s.id}</td>
+            <td><input type="checkbox" class="sub-check" value="${s.id}" data-email="${escapeHtml(s.email || '')}" /></td>
+            <td><strong>${s.id}</strong></td>
             <td>${escapeHtml(s.nom || '')}</td>
             <td>${escapeHtml(s.prenom || '')}</td>
             <td>${escapeHtml(s.email || '')}</td>
@@ -654,6 +674,7 @@
             <td><button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:.75rem" data-del-sub="${s.id}">Suppr.</button></td>
           </tr>`;
         }).join('');
+        body.querySelectorAll('.sub-check').forEach(cb => cb.addEventListener('change', updateSelectedCount));
         body.querySelectorAll('[data-del-sub]').forEach(btn => {
           btn.addEventListener('click', async () => {
             if (!confirm('Supprimer cet abonné ?')) return;
@@ -661,8 +682,39 @@
             loadSubscribers();
           });
         });
+        updateSelectedCount();
       } catch (e) {
         console.error(e);
+      }
+    }
+
+    async function sendBroadcast({ all, ids }) {
+      const subject = document.getElementById('broadcastSubject').value.trim();
+      const message = document.getElementById('broadcastMessage').value.trim();
+      const out = document.getElementById('broadcastResult');
+      if (!subject || !message) {
+        out.textContent = 'Sujet et message requis';
+        return;
+      }
+      if (!all && (!ids || !ids.length)) {
+        out.textContent = 'Coche au moins un abonné (colonne ID)';
+        return;
+      }
+      out.textContent = 'Envoi…';
+      try {
+        const res = await fetch(`${API}/api/subscribers/broadcast?password=${encodeURIComponent(password)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, message, password, all: !!all, ids: all ? [] : ids })
+        });
+        const data = await res.json();
+        if (data.success) {
+          out.textContent = `Envoyé : ${data.sent}/${data.total}` + (data.failed ? ` (échecs: ${data.failed})` : '');
+        } else {
+          out.textContent = data.message || 'Erreur';
+        }
+      } catch (e) {
+        out.textContent = 'Erreur réseau';
       }
     }
 
@@ -860,27 +912,29 @@
     document.getElementById('refreshOrders').addEventListener('click', loadOrders);
     document.getElementById('refreshProducts').addEventListener('click', loadProducts);
 
-    document.getElementById('broadcastBtn')?.addEventListener('click', async () => {
-      const subject = document.getElementById('broadcastSubject').value.trim();
-      const message = document.getElementById('broadcastMessage').value.trim();
-      const out = document.getElementById('broadcastResult');
-      if (!subject || !message) {
-        out.textContent = 'Sujet et message requis';
-        return;
-      }
-      out.textContent = 'Envoi…';
-      try {
-        const res = await fetch(`${API}/api/subscribers/broadcast?password=${encodeURIComponent(password)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subject, message, password })
-        });
-        const data = await res.json();
-        if (data.success) out.textContent = `Envoyé : ${data.sent}/${data.total}` + (data.failed ? ` (échecs: ${data.failed})` : '');
-        else out.textContent = data.message || 'Erreur';
-      } catch (e) {
-        out.textContent = 'Erreur réseau';
-      }
+    document.getElementById('broadcastSelectedBtn')?.addEventListener('click', () => {
+      const ids = getSelectedSubscriberIds();
+      sendBroadcast({ all: false, ids });
+    });
+    document.getElementById('broadcastBtn')?.addEventListener('click', () => {
+      if (!confirm('Envoyer cet email à TOUS les abonnés ?')) return;
+      sendBroadcast({ all: true, ids: [] });
+    });
+    document.getElementById('selectAllSubsBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('.sub-check').forEach(cb => { cb.checked = true; });
+      const all = document.getElementById('checkAllSubs');
+      if (all) all.checked = true;
+      updateSelectedCount();
+    });
+    document.getElementById('clearSubsBtn')?.addEventListener('click', () => {
+      document.querySelectorAll('.sub-check').forEach(cb => { cb.checked = false; });
+      const all = document.getElementById('checkAllSubs');
+      if (all) all.checked = false;
+      updateSelectedCount();
+    });
+    document.getElementById('checkAllSubs')?.addEventListener('change', (e) => {
+      document.querySelectorAll('.sub-check').forEach(cb => { cb.checked = e.target.checked; });
+      updateSelectedCount();
     });
 
     // Auto-login si session
