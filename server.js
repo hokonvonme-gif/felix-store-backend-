@@ -1061,9 +1061,9 @@ app.put('/api/orders/:id/status', checkAdmin, async (req, res) => {
   );
 });
 
-// Envoi email groupé aux abonnés newsletter
+// Envoi email aux abonnés — sélection par IDs (ou tous si ids vide / all)
 app.post('/api/subscribers/broadcast', checkAdmin, async (req, res) => {
-  const { subject, message } = req.body || {};
+  const { subject, message, ids, all } = req.body || {};
   if (!subject || !message) {
     return res.status(400).json({ success: false, message: 'Sujet et message obligatoires' });
   }
@@ -1071,40 +1071,89 @@ app.post('/api/subscribers/broadcast', checkAdmin, async (req, res) => {
   if (!transporter) {
     return res.status(503).json({ success: false, message: 'EMAIL_USER / EMAIL_PASSWORD non configurés sur Render' });
   }
+
+  // ids: [1,2,5] → seulement ceux-là ; all:true ou ids absent/vide → tous
+  const selectedIds = Array.isArray(ids)
+    ? ids.map(x => parseInt(x, 10)).filter(n => !isNaN(n) && n > 0)
+    : [];
+  const sendToAll = all === true || all === 'true' || selectedIds.length === 0;
+
   let list = [];
   if (supabase) {
     try {
-      const { data } = await supabase.from('subscribers').select('email, nom, prenom').or('statut.eq.actif,statut.is.null');
-      list = data || [];
-    } catch (_) {}
-  }
-  const sendAll = async (rows) => {
-    if (!rows.length) return res.json({ success: true, sent: 0, message: 'Aucun abonné' });
-    let sent = 0;
-    let failed = 0;
-    for (const s of rows) {
-      try {
-        await transporter.sendMail({
-          from: `"Félix Store" <${ENV.EMAIL_USER}>`,
-          to: s.email,
-          subject,
-          text: message,
-          html: `<p>Bonjour ${s.prenom || ''} ${s.nom || ''},</p><div>${String(message).replace(/\n/g, '<br>')}</div><p>— Félix Store</p>`
-        });
-        sent++;
-      } catch (e) {
-        failed++;
-        console.error('Broadcast error', s.email, e.message);
+      let q = supabase.from('subscribers').select('id, email, nom, prenom');
+      if (!sendToAll) {
+        q = q.in('id', selectedIds);
+      } else {
+        q = q.or('statut.eq.actif,statut.is.null');
       }
+      const { data, error } = await q;
+      if (error) return res.status(500).json({ success: false, message: error.message });
+      list = data || [];
+    } catch (e) {
+      return res.status(500).json({ success: false, message: e.message });
     }
-    res.json({ success: true, sent, failed, total: rows.length });
-  };
+  } else {
+    await new Promise((resolve) => {
+      if (!sendToAll) {
+        const placeholders = selectedIds.map(() => '?').join(',');
+        db.all(
+          `SELECT id, email, nom, prenom FROM subscribers WHERE id IN (${placeholders})`,
+          selectedIds,
+          (err, rows) => {
+            list = rows || [];
+            resolve();
+          }
+        );
+      } else {
+        db.all(
+          `SELECT id, email, nom, prenom FROM subscribers WHERE statut = 'actif' OR statut IS NULL`,
+          [],
+          (err, rows) => {
+            list = rows || [];
+            resolve();
+          }
+        );
+      }
+    });
+  }
 
-  if (list.length) return sendAll(list);
+  if (!list.length) {
+    return res.json({
+      success: true,
+      sent: 0,
+      total: 0,
+      message: sendToAll ? 'Aucun abonné' : 'Aucun abonné pour les IDs sélectionnés'
+    });
+  }
 
-  db.all(`SELECT email, nom, prenom FROM subscribers WHERE statut = 'actif' OR statut IS NULL`, [], async (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: err.message });
-    await sendAll(rows || []);
+  let sent = 0;
+  let failed = 0;
+  const details = [];
+  for (const s of list) {
+    try {
+      await transporter.sendMail({
+        from: `"Félix Store" <${ENV.EMAIL_USER}>`,
+        to: s.email,
+        subject,
+        text: message,
+        html: `<p>Bonjour ${s.prenom || ''} ${s.nom || ''},</p><div>${String(message).replace(/\n/g, '<br>')}</div><p>— Félix Store</p>`
+      });
+      sent++;
+      details.push({ id: s.id, email: s.email, ok: true });
+    } catch (e) {
+      failed++;
+      details.push({ id: s.id, email: s.email, ok: false, error: e.message });
+      console.error('Broadcast error', s.email, e.message);
+    }
+  }
+  res.json({
+    success: true,
+    sent,
+    failed,
+    total: list.length,
+    selected: sendToAll ? 'all' : selectedIds,
+    details
   });
 });
 
